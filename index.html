@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Grid</title>
+    <meta name="viewport" content="height=device-height, width=device-width, initial-scale=1.0">
+    <title>Games</title>
     <style>
         * {
             margin: 0;
@@ -19,14 +19,16 @@
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, 25vmax);
-            gap: 10px;
-            padding: 10px;
+            gap: 1vmax;
+            padding: 1vmax;
             justify-content: center;
         }
 
         .grid-item {
             width: 25vmax;
             height: 25vmax;
+            max-width: 100vw;
+            max-height: 100vh;
             display: block;
             transition: transform 0.3s ease;
         }
@@ -35,12 +37,17 @@
             transform: scale(1.05);
         }
 
+        .grid-item:active {
+            transform: scale(0.95);
+        }
+
         .grid-item img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
             image-rendering: pixelated;
+            overflow: hidden;
         }
     </style>
 </head>
