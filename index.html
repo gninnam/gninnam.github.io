@@ -848,6 +848,7 @@ var env = {
 <!----------------------------------------------------------------------------->
 <!----------------------------------Worker------------------------------------->
 <!----------------------------------------------------------------------------->
+<!--
 <script id="thread_script" type="text/js-worker">
 let wasmInstance;
 var count = 0;
@@ -883,6 +884,7 @@ onmessage = function(e) {
   postMessage(result);
 }
 </script>
+-->
 <!----------------------------------------------------------------------------->
 <!----------------------------------Loader------------------------------------->
 <!----------------------------------------------------------------------------->
@@ -901,7 +903,7 @@ fetch(WA.module).then(res => res.arrayBuffer()).then(function(wasmBytes)
   // allows reuse of environment section so we don't have to keep two copies up to date
   var thread_blob = new Blob([
     document.querySelector('#environment').textContent,
-    document.querySelector('#thread_script').textContent, 
+    //document.querySelector('#thread_script').textContent, 
     ], { type: "text/javascript" })
 
   var thread = new Worker(window.URL.createObjectURL(thread_blob), { type: "module" });
@@ -956,9 +958,8 @@ fetch(WA.module).then(res => res.arrayBuffer()).then(function(wasmBytes)
                                                            WA.enableWebGL);
     window.onresize();
 
-    console.log('Message posted to worker');
-    thread.postMessage(WA.thread_bundle);
-    //WA.started(); // For now we wait for the worker to spool up before calling WA.started
+    //console.log('Message posted to worker');
+    WA.started(); // For now we wait for the worker to spool up before calling WA.started
   })
   .catch(function (err)
   {
