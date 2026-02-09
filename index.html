@@ -1,7 +1,970 @@
-<!DOCTYPE html>
-<html>
-<body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+<!doctype html>
+<html lang="en-us"?> <!-- style="margin:0;padding:0;overflow:hidden;">-->
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebAssembly Platform Module</title>
+</head>
+<!-- -webkit-overscroll-behavior:contain; -->
+<meta name="viewport" content="width=device-width, initial-scale=0.5">
+<!-- background:#181A1B;color:#E8E6E3;scrollbar-color:#454a4d #202324; -->
+<body id="body" style="background:#000000;opacity:1.0;margin:0;padding:0;overflow:hidden;">
+<!-- WA.canvas.style.background = "#FFFFFF"; style="background:#000000;" -->
+<div id="canvas-container" position="relative">
+<canvas id="glCanvas" oncontextmenu="return false;" style="background:#000000;"></canvas>
+</div>
+<!----------------------------------------------------------------------------->
+<!-----------------------------------WebGL------------------------------------->
+<!----------------------------------------------------------------------------->
+<script type="text/javascript">
+"use strict";
+
+function resizeCanvasToDisplaySize(canvas) {
+  // Lookup the size the browser is displaying the canvas in CSS pixels.
+  const displayWidth  = canvas.clientWidth;
+  const displayHeight = canvas.clientHeight;
+ 
+  // Check if the canvas is not the same size.
+  const needResize = canvas.width  !== displayWidth ||
+                     canvas.height !== displayHeight;
+ 
+  if (needResize) {
+    // Make the canvas the same size
+    canvas.width  = displayWidth;
+    canvas.height = displayHeight;
+  }
+ 
+  return needResize;
+}
+
+function WebGL_Init(x_ptr, y_ptr) {
+  WA.gl = WA.canvas.getContext("webgl2", {preserveDrawingBuffer: false});
+  WebGL_Resize();
+  console.log(`${WA.gl.canvas.width} : ${WA.gl.canvas.height}`);
+  WA.gl.viewport(0, 0, WA.gl.canvas.width, WA.gl.canvas.height);
+  WA.viewF32[x_ptr/4] = WA.gl.canvas.width;
+  WA.viewF32[y_ptr/4] = WA.gl.canvas.height;
+}
+
+function WebGL_Resize() {
+  if (!WA.gl) {
+    return;
+  }
+
+  resizeCanvasToDisplaySize(WA.gl.canvas);
+  //WA.asm.Wasm_Set_Camera_ViewProj(WA.canvas.width, WA.canvas.height);
+  //WA.asm.Wasm_Set_Viewport(0, 0, WA.gl.canvas.width, WA.gl.canvas.height);
+}
+function create_input_on_canvas() {
+    var container = document.getElementById('canvas-container');
+
+    // 3. Create the input element
+    const inputElement = document.createElement('input');
+    inputElement.type = 'text';
+    inputElement.placeholder = 'Enter text here';
+
+    // 4. Apply inline styles for positioning the input on top of the canvas
+    inputElement.style.position = 'absolute';
+    inputElement.style.top = '100px';    // Adjust these values to position the input
+    inputElement.style.left = '50px';   // exactly where you want it on the canvas
+    inputElement.style.width = '300px';
+
+    // Add the input element to the container
+    container.appendChild(inputElement);
+}
+</script>
+<!----------------------------------------------------------------------------->
+<!----------------------------------Loader------------------------------------->
+<!----------------------------------------------------------------------------->
+<script type="text/javascript">
+let textRatio = 14 / (1920*.30);
+
+function IsTouchEnabled() {
+  return ( 'ontouchstart' in window ) ||
+           ( navigator.maxTouchPoints > 0 ) ||
+           ( navigator.msMaxTouchPoints > 0 );
+}
+
+let safe_to_lock_cursor = true;
+
+var WA =
+{
+    module: 'output.wasm',
+    enableWebGL: true,
+    memory_reservations: [],
+    textures: [],
+    assets: [],
+    programs: [],
+    shaders: [],
+    locations: [],
+    vaos: [],
+    bos: [],
+    events: [],
+    textureCount: 1,
+    assetCount: 1,
+    programCount: 1,
+    shaderCount: 1,
+    locationCount: 1,
+    vaoCount: 1,
+    boCount: 1,
+    event_count: 1,
+    key_states: [],
+    cursors: [
+      "default",
+      "move",
+      "n-resize", //2
+      "wait",
+      "s-resize", //4
+      "e-resize", //5
+      "w-resize", //6
+      
+      "ne-resize",//7
+      "nw-resize",//8
+      "se-resize",//9
+      "sw-resize",//10
+    ],
+    input_flags: {
+      left:   1 << 0,
+      right:  1 << 1,
+      middle: 1 << 2,
+      four:   1 << 3,
+      five:   1 << 4,
+    },
+    inputState: 0,
+    charState: 0,
+    input_map: {
+      KeyB: 1 << 0,
+      KeyA: 1 << 1,
+      KeyC: 1 << 2,
+      KeyD: 1 << 3,
+      KeyE: 1 << 4,
+    },
+    window_event_null: 0,
+    window_event_close: 1,
+    window_event_keyboard: 2,
+    window_event_character: 3,
+    window_event_mouse: 4,
+    window_event_raw_mouse: 5,
+    window_event_drag_and_drop_file: 6,
+    key_state_null:   0,  
+    key_state_up:     1,
+    key_state_down:   2,
+    key_state_repeat: 4,
+    key_modifier_shift:   1,
+    key_modifier_control: 2,
+    key_modifier_alt:     4,
+    key_modifier_cmd:     8,
+    key_map: {
+    "key_unknown": 0,
+  
+    // Non-textual keys that have placements in the ASCII table
+    // (and thus in Unicode):
+  
+    "Backspace":      8,
+    "Tab":            9,
+    "key_linefeed":  10,
+    "Enter":         13,
+    "Escape":        27,
+    "Space":         32,
+    
+    "Delete":       127,
+  
+    "ArrowUp":      128,
+    "ArrowDown":    129,
+    "ArrowLeft":    130,
+    "ArrowRight":   131,
+  
+    "PageUp":       132,
+    "PageDown":     133,
+  
+    "Home":         134,
+    "End":          135,
+  
+    "Insert":       136,
+  
+    "Pause":        137,
+    "ScrollLock":   138,
+    "CapsLock":     139,
+   
+    "AltLeft":      140,
+    "AltRight":     140,
+    "ControlLeft":  141,
+    "ControlRight": 141,
+    "ShiftLeft":    142,
+    "ShiftRight":   142,
+    "MetaLeft":     143,
+    "MetaRight":    143,
+
+    "F1":           144,
+    "F2":           145,
+    "F3":           146,
+    "F4":           147,
+    "F5":           148,
+    "F6":           149,
+    "F7":           150,
+    "F8":           151,
+    "F9":           152,
+    "F10":          153,
+    "F11":          154,
+    "F12":          155,
+    "F13":          156,
+    "F14":          157,
+    "F15":          158,
+    "F16":          159,
+    "F17":          160,
+    "F18":          161,
+    "F19":          162,
+    "F20":          163,
+    "F21":          164,
+    "F22":          165,
+    "F23":          166,
+    "F24":          167,
+  
+    "PrintScreen":  168,
+  
+    "Numpad0":        169,
+    "Numpad1":        170,
+    "Numpad2":        171,
+    "Numpad3":        172,
+    "Numpad4":        173,
+    "Numpad5":        174,
+    "Numpad6":        175,
+    "Numpad7":        176,
+    "Numpad8":        177,
+    "Numpad9":        178,
+    "NumpadMultiply": 179,
+    "NumpadDivide":   180,
+    "NumpadAdd":      188,
+    "NumpadSubtract": 182,
+    "NumpadDecimal":  183,
+    "NumpadEnter":    184,
+
+    0: 185,
+    1: 186,
+    2: 187,
+  
+    3: 188,
+    4: 189,
+
+    },
+    mouseX: -100,
+    mouseY: -100,
+    add_button_press_event: (type, state, data, shift, control, alt, cmd) => {
+      WA.events[WA.event_count] = {};
+      WA.events[WA.event_count].type = type;
+      WA.events[WA.event_count].state = state;
+      WA.events[WA.event_count].data = WA.get_key_value(data);
+
+      WA.events[WA.event_count].modifier = 0;
+      WA.events[WA.event_count].modifier |= shift   ? WA.key_modifier_shift : 0;
+      WA.events[WA.event_count].modifier |= control ? WA.key_modifier_control : 0;
+      WA.events[WA.event_count].modifier |= alt     ? WA.key_modifier_alt : 0;
+      WA.events[WA.event_count].modifier |= cmd     ? WA.key_modifier_cmd : 0;
+
+      WA.event_count++;
+    },
+    add_mouse_event: (state, data, x, y, shift, control, alt, cmd) => {
+      WA.events[WA.event_count] = {};
+      WA.events[WA.event_count].type = WA.window_event_mouse;
+      WA.events[WA.event_count].state = state;
+      WA.events[WA.event_count].data = WA.get_key_value(data);
+      WA.events[WA.event_count].x = x;
+      WA.events[WA.event_count].y = y;
+
+      WA.events[WA.event_count].modifier = 0;
+      WA.events[WA.event_count].modifier |= shift   ? WA.key_modifier_shift : 0;
+      WA.events[WA.event_count].modifier |= control ? WA.key_modifier_control : 0;
+      WA.events[WA.event_count].modifier |= alt     ? WA.key_modifier_alt : 0;
+      WA.events[WA.event_count].modifier |= cmd     ? WA.key_modifier_cmd : 0;
+
+      WA.event_count++;
+    },
+    add_raw_mouse_event: (state, data, x, y, shift, control, alt, cmd) => {
+      WA.events[WA.event_count] = {};
+      WA.events[WA.event_count].type = WA.window_event_raw_mouse;
+      WA.events[WA.event_count].state = state;
+      WA.events[WA.event_count].data = WA.get_key_value(data);
+      WA.events[WA.event_count].x = x;
+      WA.events[WA.event_count].y = y;
+
+      WA.events[WA.event_count].modifier = 0;
+      WA.events[WA.event_count].modifier |= shift   ? WA.key_modifier_shift : 0;
+      WA.events[WA.event_count].modifier |= control ? WA.key_modifier_control : 0;
+      WA.events[WA.event_count].modifier |= alt     ? WA.key_modifier_alt : 0;
+      WA.events[WA.event_count].modifier |= cmd     ? WA.key_modifier_cmd : 0;
+
+      WA.event_count++;
+    },
+    get_key_value: (key) => {
+      let map_result =  WA.key_map[key];
+      if (map_result != undefined) return map_result;
+      if (key.includes("Digit")) return key.charCodeAt(5);
+      if (key.includes("Key")) return key.charCodeAt(3);
+    },
+    decoder: new TextDecoder("utf8"),
+    // NOTE(gninnam): decodeUtf8 is broken I think, something with null-termination?
+    decodeUtf8: function(ptr, size = 64)
+    {
+      let Buffer = new Uint8Array(size);
+      //let View = WA.view8.slice(ptr);
+      Buffer.set(WA.view8, ptr);
+      let string = WA.decoder.decode(Buffer);
+      return string;
+    },
+    decodeAscii: function(base)
+    {
+      let cursor = base;
+      let result = '';
+      while (WA.view8[cursor] !== 0) {
+        result += String.fromCharCode(WA.view8[cursor++]);
+      }
+      return result;
+    },
+    print: function(text)
+    {
+		console.log(text);
+    },
+    error: function(code, msg)
+    {
+      // TODO(gninnam): Redirect user to a backup html page that explains
+      // the web assembly requirement or if it's simple, just pop it up on this page
+		console.log({
+			BOOT: 'Error during startup. Your browser might not support WebAssembly. Please update it to the latest version.',
+			CRASH: 'The program crashed.',
+			MEM: 'The program ran out of memory.',
+        }[code] + '\n(' + msg + ')');
+    },
+    arrayToInt: function(bs, start) 
+    {
+		start = start || 0;
+		const bytes = bs.subarray(start, start+8); 
+		let n = 0;
+		let i = 64;
+		for (const byte of bytes.values()) {
+			n = byte<<i;
+			i -= 8;
+		}
+		return n;
+    },
+    // Decode a string from memory starting at address base.
+    decode: function(memory, base, length = Math.pow(2, 24)) {
+		let cursor = base;
+		let result = '';
+		while (memory[cursor] !== 0) {
+			result += String.fromCharCode(memory[cursor++]);
+			if (--length == 0)
+				break;
+		}
+		return result;
+    },
+    started: function()
+    {
+		WA.print('\nStarting...\n');
+		WA.start = window.performance.now();
+    let Time = BigInt(Date.now());
+
+    let selectable_margin = 20.0;
+
+    if (IsTouchEnabled())
+    {
+      //WA.charState = 1 << 0;
+      selectable_margin = 50.0;
+      WA.canvas.addEventListener("touchstart", function(e) { 
+      var cRect = WA.canvas.getBoundingClientRect();
+      WA.mouseX = Math.round(e.touches.item(0).clientX - cRect.left);
+      WA.mouseY = Math.round(e.touches.item(0).clientY - cRect.top);
+      WA.inputState |= WA.input_flags.left;
+      if (e.touches.length == 2) WA.charState = WA.input_map.KeyE;
+      if (e.touches.length == 3) WA.charState = WA.input_map.KeyA;
+      if (e.touches.length == 1) WA.charState = WA.input_map.KeyD;
+    });
+      WA.canvas.addEventListener("touchmove", function(e) { 
+      var cRect = WA.canvas.getBoundingClientRect();
+      WA.mouseX = Math.round(e.touches.item(0).clientX - cRect.left);
+      WA.mouseY = Math.round(e.touches.item(0).clientY - cRect.top);
+      WA.inputState |= WA.input_flags.left;
+    });
+      WA.canvas.addEventListener("touchend", function(e) { 
+      WA.inputState &= ~WA.input_flags.left;
+      WA.mouseX = -100;
+      WA.mouseY = -100;
+    });
+      WA.canvas.addEventListener("touchcancel", function(e) { 
+      WA.inputState &= ~WA.input_flags.left;
+      WA.mouseX = -100;
+      WA.mouseY = -100;
+    });
+    }
+    else
+    {
+      WA.canvas.addEventListener("mousemove", function(e) { 
+        if (document.pointerLockElement != WA.gl.canvas) {
+          WA.add_mouse_event(WA.key_state_null, 0, e.x, e.y, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        }
+        else {
+          WA.add_raw_mouse_event(WA.key_state_null, 0, e.movementX, e.movementY, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        }
+        var cRect = WA.canvas.getBoundingClientRect();
+        WA.mouseX = Math.round(e.clientX - cRect.left);
+        WA.mouseY = Math.round(e.clientY - cRect.top);
+      });
+      WA.canvas.addEventListener("mousedown", function(e) { 
+        WA.add_mouse_event(WA.key_state_down, e.button, e.x, e.y, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        WA.key_states[WA.get_key_value(e.button)] = 1;
+        var cRect = WA.canvas.getBoundingClientRect();
+        switch(e.button)
+        {
+          case 0: WA.inputState |= WA.input_flags.left;  break;
+          case 2: WA.inputState |= WA.input_flags.right; break;
+        }
+        WA.mouseX = Math.round(e.clientX - cRect.left);
+        WA.mouseY = Math.round(e.clientY - cRect.top);
+    });
+      WA.canvas.addEventListener("mouseup", function(e) { 
+        WA.add_mouse_event(WA.key_state_up, e.button, e.x, e.y, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        WA.key_states[WA.get_key_value(e.button)] = 0;
+        var cRect = WA.canvas.getBoundingClientRect();
+        switch(e.button)
+        {
+          case 0: WA.inputState &= ~WA.input_flags.left;  break;
+          case 2: WA.inputState &= ~WA.input_flags.right; break;
+        }
+        WA.mouseX = Math.round(e.clientX - cRect.left);
+        WA.mouseY = Math.round(e.clientY - cRect.top);
+    });
+      window.addEventListener("keydown", function(e) {
+        WA.add_button_press_event(WA.window_event_keyboard, WA.key_state_down, e.code, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        WA.key_states[WA.get_key_value(e.code)] = 1;
+        WA.charState |= WA.input_map[e.code];
+        console.log(e.code);
+      });
+      window.addEventListener("keyup", function(e) {
+        WA.add_button_press_event(WA.window_event_keyboard, WA.key_state_up, e.code, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
+        WA.key_states[WA.get_key_value(e.code)] = 0;
+        WA.charState &= ~WA.input_map[e.code];
+      });
+      document.addEventListener("pointerlockchange", () => {
+        if (document.pointerLockElement != WA.gl.canvas) {
+          WA.asm.wasm_canvas_unlock_cursor();
+        }
+      });
+    }
+
+    //window.onresize();
+    WA.asm.Wasm_Main(Time, WA.canvas.width, WA.canvas.height, selectable_margin);
+
+    let Count = 1000;
+    var last_ts;
+    draw_func = (ts) =>
+    {
+      //if (WA.enableWebGL) WA.gl.clear(16640);
+
+      let DeltaTime = (ts-last_ts)/1000;
+      //WA.print(DeltaTime);
+      // TODO: Measure Update function
+      //let start = window.performance.now();
+      //console.log(start);
+      WA.asm.Update(DeltaTime, WA.canvas.width, WA.canvas.height, WA.mouseX, WA.mouseY, BigInt(0));
+      //console.log(`Update time: ${window.performance.now() - start}`);
+
+      last_ts = ts;
+
+      //Count--;
+      //if (Count > 0) window.requestAnimationFrame(draw_func);
+      window.requestAnimationFrame(draw_func);
+    };
+
+    window.requestAnimationFrame(draw_func);
+    },
+};
+
+window.onresize = () => {
+    var canvas = document.getElementById('glCanvas');
+    let actualWindowHeight = 0;
+    
+    //canvas.width  = window.innerWidth;
+    //canvas.height = window.innerHeight;
+    //WebGL_Resize();
+    // TODO: Manage an array of resizes
+    WA.canvas.resized = true;
+}
+</script>
+<!----------------------------------------------------------------------------->
+<!-------------------------------Environment----------------------------------->
+<!----------------------------------------------------------------------------->
+<script id="environment" type="text/javascript">
+var EnableDebugTrace = false;
+function DebugTrace(extra_info)
+{
+  if (extra_info === undefined) extra_info = "";
+  if (EnableDebugTrace)
+    WA.print("Called " + DebugTrace.caller.name + extra_info + "\n");
+}
+var env = { 
+    // NOTE(gninnam) This is how you import memory (3 64KB pages)
+    //memory: new WebAssembly.Memory({ initial: 3, maximum: 3, shared: true }),
+    WasmPrintUtf16: (utf16, length) => {
+      let string = WA.decode(WA.view16, utf16/2, length);
+      WA.print(string);
+    },
+    WasmPrintUtf8: (utf8, size) => {
+      let Buffer = new Uint8Array(size);
+      let View = WA.view8.slice(utf8, utf8+size);
+      Buffer.set(View, 0);
+      let string = WA.decoder.decode(Buffer);
+      WA.print(string);
+    },
+    Log: (utf8) => { 
+      let string = WA.decode(WA.view8, utf8);
+      WA.print(string);
+    },
+    WasmCreateThread: (functionName) => { 
+      functionName = WA.decode(WA.view8, functionName);
+      console.log("CreateThread: " + functionName);
+      thread.postMessage(functionName);
+    },
+    JS_GrowMemory: (page_count) =>
+    {
+      WA.memory.grow(page_count);
+      WA.view8  = new Uint8Array(WA.memory.buffer);
+      WA.view16 = new Uint16Array(WA.memory.buffer);
+      WA.view32 = new Uint32Array(WA.memory.buffer);
+      WA.viewF32 = new Float32Array(WA.memory.buffer);
+      //WA.view64 = new Uint64Array(WA.memory.buffer); // Currently no Uint64Array
+
+      WA.size_t   = 4;                                 // 32-bit
+      WA.viewPtr  = new Uint32Array(WA.memory.buffer); // 32-bit
+      WA.viewSize = new Uint32Array(WA.memory.buffer); // 32-bit
+      //WA.size_t   = 8;                                 // 64-bit
+      //WA.viewPtr  = new Uint64Array(WA.memory.buffer); // 64-bit
+      //WA.viewSize = new Uint64Array(WA.memory.buffer); // 64-bit
+    },
+    js_webgl_init: (x_ptr, y_ptr) =>
+    {
+      WebGL_Init(x_ptr, y_ptr);
+    },
+    js_update_events: () => {
+      for (i = 1; i < WA.event_count; i++)
+      {
+        WA.asm.wasm_post_window_event(WA.events[i].type, WA.events[i].x, WA.events[i].y, WA.events[i].state, WA.events[i].data, WA.events[i].modifier);
+      }
+      WA.event_count = 1;
+    },
+    js_get_canvas_size: (x_ptr, y_ptr) =>
+    {
+      WA.viewF32[x_ptr/4] = WA.gl.canvas.width;
+      WA.viewF32[y_ptr/4] = WA.gl.canvas.height;
+    },
+    js_get_canvas_resize: (x_ptr, y_ptr) => {
+      let result = WA.canvas.resized;
+      WA.canvas.resized = false;
+      WA.viewF32[x_ptr/4] = window.innerWidth;
+      WA.viewF32[y_ptr/4] = window.innerHeight;
+      return result;
+    },
+    js_resize_canvas: (width, height) =>
+    {
+      var canvas = document.getElementById('glCanvas');
+      let actualWindowHeight = 0;
+      
+      canvas.width  = width;
+      canvas.height = height;
+      WebGL_Resize();
+    },
+    js_resize_canvas_to_window: (x_ptr, y_ptr) => {
+      let width  = window.innerWidth;
+      let height = window.innerHeight;
+      WA.viewF32[x_ptr/4] = width;
+      WA.viewF32[y_ptr/4] = height;
+      WA.gl.canvas.width = width;
+      WA.gl.canvas.height = height;
+      WebGL_Resize();
+    },
+    js_toggle_fullscreen: () => {
+      let elem = document.documentElement;
+      if (!document.fullscreenElement) {
+        /* Enter fullscreen */
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+          elem.msRequestFullscreen();
+        }
+      } else {
+        /* Exit fullscreen */
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* Safari */
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+          document.msExitFullscreen();
+        }
+      }
+    },
+    js_lock_cursor_to_canvas: () => {
+      WA.gl.canvas.requestPointerLock({ unadjustedMovement: true });
+    },
+    js_unlock_cursor: () => {
+      document.exitPointerLock();
+    },
+    js_get_key_state: (key) => {
+      let state = WA.key_states[key];
+      if (state === undefined) {
+        state = 0;
+        WA.key_states[key] = state;
+      }
+      return state;
+    },
+    Platform_Clock_U64: () => {
+      return BigInt(Date.now());
+    },
+    js_performance_now : () => { return window.performance.now(); },
+    omp_get_thread_num: () => { return 0 },
+    omp_get_num_threads: () => { return 8 },
+    JS_CreateThread: (function_ptr, arg_ptr) =>
+    {
+      thread.postMessage({ 
+        bundle: WA.thread_bundle, 
+        function_ptr: function_ptr, 
+        arg_ptr: arg_ptr
+      });
+    },
+    JS_DebugFloat: (f32) =>
+    {
+      console.log(f32);
+    },
+    JS_DebugInt: (s32) =>
+    {
+      console.log(s32);
+    },
+    JS_DebugPtr: (ptr) =>
+    {
+      console.log(ptr);
+    },
+    JS_DebugSize: (size) =>
+    {
+      console.log(size);
+    },
+    js_read_entire_file: (path) =>
+    {
+      path = WA.decode(WA.view8, path);
+      fetch(path).then(res => {
+        res.blob().then(blob => {
+          console.log(`size: ${blob.size}`);
+          return blob.size;
+        })
+      });
+    },
+    Platform_Input_Get_Flags: () => {
+      return WA.inputState | 0;
+    },
+    Platform_Input_Get_Chars: () => {
+      let state = WA.charState;
+      WA.charState = 0;
+      return state | 0;
+    },
+    Platform_Window_Cursor_Set: (window, cursor) => {
+      WA.canvas.style.cursor = WA.cursors[cursor];
+    },
+    JS_CopyToCanvas: (width, height, pixels, size) =>
+    {
+      //let start = window.performance.now(); 
+      let Buffer = new Uint8ClampedArray(WA.view8.buffer, pixels, size); // .005 ms
+      let PixelData = new ImageData(Buffer.slice(), width, height); // 3ms
+      WA.context.putImageData(PixelData, 0, 0); // 0.5ms
+      //console.log(`Copy time: ${window.performance.now() - start}`);
+    },
+    tan: (x) => { DebugTrace(); return Math.tan(x); },
+    tanf: (x) => { DebugTrace(); return Math.tan(x); },
+    cos: (x) => { DebugTrace(); return Math.cos(x); },
+    cosf: (x) => { DebugTrace(); return Math.cos(x); },
+    sin: (x) => { DebugTrace(); return Math.sin(x); },
+    sinf: (x) => { DebugTrace(); return Math.sin(x); },
+    atan2f: (x, y) => { DebugTrace(); return Math.atan2(x, y); },
+    pow: (x, y) => { DebugTrace(); return Math.pow(x, y); },
+    powf: (x, y) => { DebugTrace(); return Math.pow(x, y); },
+    abs: (x) => { DebugTrace(); return Math.abs(x); },
+    glClearColor: (red, green, blue, alpha) => { WA.gl.clearColor(red, green, blue, alpha); },
+    glEnable: (Value) => { WA.gl.enable(Value); },
+    glBlendFunc: (sfactor, dfactor) => { WA.gl.blendFunc(sfactor, dfactor); },
+    glDeleteShader: (shader_id) => { WA.gl.deleteShader(WA.shaders[shader_id]); }, 
+    glGenVertexArrays: (count, ptr) => { 
+      WA.vaos[WA.vaoCount] = WA.gl.createVertexArray(); 
+      WA.view32[ptr/4] = WA.vaoCount;
+      WA.vaoCount++;
+    },
+    glBindVertexArray: (id) => { if (id) WA.gl.bindVertexArray(WA.vaos[id]); },
+    glGenBuffers: (count, ptr) => {
+      WA.bos[WA.boCount] = WA.gl.createBuffer();
+      WA.view32[ptr/4] = WA.boCount;
+      WA.boCount++;
+    },
+    glBindBuffer: (target, id) => { if (id) WA.gl.bindBuffer(target, WA.bos[id]); },
+    glGenTextures: (count, ptr) => { 
+      DebugTrace();
+      // TODO(gninnam): Handle more than one at a time, lots of other functions need this too
+      WA.textures[WA.textureCount] = WA.gl.createTexture();
+      WA.view32[ptr/4] = WA.textureCount;
+      WA.textureCount++;
+    },
+    glBindTexture: (target, id) => { 
+      DebugTrace(": " + id);
+      if (id) WA.gl.bindTexture(target, WA.textures[id]); 
+    },
+    glTexParameteri: (target, pname, param) => { 
+      DebugTrace();  
+      WA.gl.texParameteri(target, pname, param); 
+    },
+    glTexImage2D: (target, level, internalformat, width, height, border, format, type, pixels) =>
+    {
+      // TODO(gninnam): Change size based on format, for now assume 32bit pixels
+      DebugTrace();
+      let Size = width*height*4;
+      let Buffer = new Uint8Array(Size);
+      let View = WA.view8.slice(pixels, pixels+Size);
+      Buffer.set(View, 0);
+      WA.gl.texImage2D(target, level, internalformat, 
+                         width, height, border, format, type, Buffer);
+    },
+    glTexSubImage2D: (target, level, xoffset, yoffset, width, height, format, type, pixels) =>
+    {
+      // TODO(gninnam): Change size based on format, for now assume 32bit pixels
+      DebugTrace();
+      let Size = width*height*4;
+      let Buffer = new Uint8Array(Size);
+      let View = WA.view8.slice(pixels, pixels+Size);
+      Buffer.set(View, 0);
+      WA.gl.texSubImage2D(target, level, xoffset, yoffset, 
+                         width, height, format, type, Buffer);
+    },
+    glGenerateMipmap: (target) => { WA.gl.generateMipmap(target); },
+    glBufferData: (target, size, ptr, usage) => { 
+      WA.gl.bufferData(target, WA.view8, usage, ptr, size); 
+    },
+    glGetAttribLocation: (program_id, ptr) => { 
+      let string = WA.decodeAscii(ptr);
+      WA.gl.getAttribLocation(WA.programs[program_id], ptr);
+    },
+    glVertexAttribPointer: (index, size, type, normalized, stride, offset) => { 
+      WA.gl.vertexAttribPointer(index, size, type, normalized, stride, offset); 
+    },
+    glVertexAttribIPointer: (index, size, type, stride, offset) => {
+      WA.gl.vertexAttribIPointer(index, size, type, stride, offset);
+    },
+    glVertexAttribDivisor: (index, divisor) => {
+      WA.gl.vertexAttribDivisor(index, divisor);
+    },
+    glEnableVertexAttribArray: (index) => { WA.gl.enableVertexAttribArray(index); },
+    glUseProgram: (id) => { WA.gl.useProgram(WA.programs[id]); },
+    glGetUniformLocation: (program_id, name) => { 
+      name = WA.decodeAscii(name);
+      WA.locations[WA.locationCount] = WA.gl.getUniformLocation(WA.programs[program_id], name);
+      let result = WA.locationCount;
+      WA.locationCount++;
+      return result;
+    },
+    glGetUniformBlockIndex: (program_id, uniformBlockName) => {
+      WA.gl.getUniformBlockIndex(WA.programs[program_id], uniformBlockName);
+    },
+    glUniformBlockBinding: (program_id, uniformBlockIndex, uniformBlockBinding) => {
+      WA.gl.uniformBlockBinding(WA.programs[program_id], uniformBlockIndex, uniformBlockBinding);
+    },
+    glBindBufferRange: (target, index, buffer_id, offset, size) => {
+      if (buffer_id) WA.gl.bindBufferRange(target, index, WA.bos[buffer_id], offset, size);
+    },
+    glActiveTexture: (texture) => {
+      WA.gl.activeTexture(texture);
+    },
+    glDrawArraysInstanced: (mode, first, count, instanceCount) => {
+      WA.gl.drawArraysInstanced(mode, first, count, instanceCount);
+    },
+    glCreateShader: (type) => { 
+      WA.shaders[WA.shaderCount] = WA.gl.createShader(type);
+      let result = WA.shaderCount;
+      WA.shaderCount++;
+      return result;
+    },
+    glAttachShader: (program_id, shader_id) => {
+      WA.gl.attachShader(WA.programs[program_id], WA.shaders[shader_id]);
+    },
+    glShaderSource: (shader_id, count, ptr, size) => {
+      let string = WA.decodeAscii(WA.viewPtr[ptr/4], size);
+      WA.gl.shaderSource(WA.shaders[shader_id], string);
+    },
+    glCompileShader: (shader_id) => {
+      WA.gl.compileShader(WA.shaders[shader_id]);
+    },
+    glGetShaderiv: (shader_id, pname, successPtr) => {
+      let success = WA.gl.getShaderParameter(WA.shaders[shader_id], pname);
+      WA.view32[successPtr/4] = success;
+    },
+    glGetShaderInfoLog: (shader_id, size, length, ptr) => {
+      let string = WA.gl.getShaderInfoLog(WA.shaders[shader_id]);
+      // NOTE(gninnam): For now we just print to console instead of writing to memory
+      console.log(string);
+    },
+    glCreateProgram: () => { 
+      WA.programs[WA.programCount] = WA.gl.createProgram();
+      let result = WA.programCount;
+      WA.programCount++;
+      return result;
+    },
+    glLinkProgram: (program_id) => { 
+      WA.gl.linkProgram(WA.programs[program_id]);
+    },
+    glGetProgramiv: (program_id, pname, successPtr) => { 
+      let success = WA.gl.getProgramParameter(WA.programs[program_id], pname);
+      WA.view32[successPtr/4] = success;
+    },
+    glGetProgramInfoLog: (program_id, size, length, ptr) => {
+      let string = WA.gl.getProgramInfoLog(WA.programs[program_id]);
+      // NOTE(gninnam): For now we just print to console instead of writing to memory
+      console.log(string);
+    },
+    glViewport: (x, y, width, height) => {
+      WA.gl.viewport(x, y, width, height);
+    },
+    glUniformMatrix4fv: (location_id, count, transpose, ptr) =>
+    {
+      WA.gl.uniformMatrix4fv(WA.locations[location_id], transpose, WA.viewF32, ptr/4, 16*count);
+    },
+    glUniform3fv: (location_id, count, ptr) =>
+    {
+      WA.gl.uniform3fv(WA.locations[location_id], WA.viewF32, ptr/4, 3*count);
+    },
+    glUniform4fv: (location_id, count, ptr) =>
+    {
+      WA.gl.uniform4fv(WA.locations[location_id], WA.viewF32, ptr/4, 4*count);
+    },
+    glDrawElements: (mode, count, type, offset) => {
+      WA.gl.drawElements(mode, count, type, offset);
+    },
+    glClear: (mask) => {
+      WA.gl.clear(mask);
+    },
+  };
+</script>
+<!----------------------------------------------------------------------------->
+<!----------------------------------Worker------------------------------------->
+<!----------------------------------------------------------------------------->
+<script id="thread_script" type="text/js-worker">
+let wasmInstance;
+var count = 0;
+onmessage = function(e) {
+  console.log('Message received from main script');
+  var result;
+  if (e.data.module)
+  {
+    env.memory = e.data.memory;
+    WebAssembly.instantiate(e.data.module, { env: env }).then(function(instance) {
+      wasmInstance = instance;
+      postMessage("Instantiated WebAssembly Module");
+    });
+    result = "Instantiating WebAssembly Module";
+  }
+  else if (e.data.substring)
+  {
+    let func = wasmInstance.exports[e.data];
+    if (func) func();
+    result = "Called Function " + e.data + " in separate thread";
+  }
+  else if (e.data.bundle)
+  {
+    env.memory = e.data.bundle.memory;
+    WebAssembly.instantiate(e.data.bundle.module, { env: env }).then(function(instance) {
+      wasmInstance = instance;
+      postMessage("Instantiated WebAssembly Module");
+      wasmInstance.exports["Wasm_CreateThread"](e.data.function_ptr, e.data.arg_ptr);
+    });
+    result = "Instantiating WebAssembly Module"; 
+  }
+  console.log('Posting message back to main script');
+  postMessage(result);
+}
+</script>
+<!----------------------------------------------------------------------------->
+<!----------------------------------Loader------------------------------------->
+<!----------------------------------------------------------------------------->
+<script type="text/javascript">
+  function isPowerOf2(value) {
+  return (value & (value - 1)) == 0;
+}
+
+WA.imports = {};
+
+fetch(WA.module).then(res => res.arrayBuffer()).then(function(wasmBytes)
+{
+  'use strict';
+
+  // generate worker.js instead of downloading it
+  // allows reuse of environment section so we don't have to keep two copies up to date
+  var thread_blob = new Blob([
+    document.querySelector('#environment').textContent,
+    document.querySelector('#thread_script').textContent, 
+    ], { type: "text/javascript" })
+
+  var thread = new Worker(window.URL.createObjectURL(thread_blob), { type: "module" });
+  thread.onmessage = function(e) {
+    console.log('Message received from worker: ' + e.data);
+
+    if (e.data === "Instantiated WebAssembly Module") {
+      WA.started();
+    }
+  }
+
+  WA.buffer = wasmBytes;
+  wasmBytes = new Uint8Array(wasmBytes);
+  
+  WA.print = WA.print || function (msg) { console.log(msg); };
+  WA.error = WA.error || function (code, msg) { WA.print('[ERROR] ' + code + ': ' + msg + '\n'); };
+  
+  function abort(code, msg)
+  {
+    WA.error(code, msg);
+    throw 'abort';
+  }
+  
+  WebAssembly.instantiate(WA.buffer, { env: env }).then(function (output)
+  {
+    // TODO(gninnam): We need to support multiple memory objects
+    // that act like separte reservations of virtual memory
+    // though its gonna end up using a lot of memory since the page size is 64k
+    // NOTE(gninnam): Currently, there is no support for multiple memory obejects
+    WA.asm = output.instance.exports;
+    WA.memory = (WA.asm.memory) ? WA.asm.memory : env.memory;
+    WA.thread_bundle = { module: output.module, memory: WA.memory };
+    WA.view8  = new Uint8Array(WA.memory.buffer);
+    WA.view16 = new Uint16Array(WA.memory.buffer);
+    WA.view32 = new Uint32Array(WA.memory.buffer);
+    WA.viewF32 = new Float32Array(WA.memory.buffer);
+    //WA.view64 = new Uint64Array(WA.memory.buffer); // Currently no Uint64Array
+
+    WA.size_t   = 4;                                 // 32-bit
+    WA.viewPtr  = new Uint32Array(WA.memory.buffer); // 32-bit
+    WA.viewSize = new Uint32Array(WA.memory.buffer); // 32-bit
+    //WA.size_t   = 8;                                 // 64-bit
+    //WA.viewPtr  = new Uint64Array(WA.memory.buffer); // 64-bit
+    //WA.viewSize = new Uint64Array(WA.memory.buffer); // 64-bit
+
+    WA.canvas = document.getElementById('glCanvas');
+    //if (WA.enableWebGL) WebGL_Init();
+    //else WA.context = WA.canvas.getContext('2d');
+
+    if (WA.asm.Wasm_Init) WA.GameMemory = WA.asm.Wasm_Init(WA.asm.__heap_base, 
+                                                           WA.canvas.width, WA.canvas.height, 
+                                                           WA.enableWebGL);
+    window.onresize();
+
+    console.log('Message posted to worker');
+    thread.postMessage(WA.thread_bundle);
+    //WA.started(); // For now we wait for the worker to spool up before calling WA.started
+  })
+  .catch(function (err)
+  {
+    if (err !== 'abort') abort('BOOT', 'WASM instiantate error: ' + err + (err.stack ? "\n" + err.stack : ''));
+  });  
+});
+</script>
 </body>
 </html>
