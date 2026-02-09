@@ -80,9 +80,7 @@ function create_input_on_canvas() {
 let textRatio = 14 / (1920*.30);
 
 function IsTouchEnabled() {
-  return ( 'ontouchstart' in window ) ||
-           ( navigator.maxTouchPoints > 0 ) ||
-           ( navigator.msMaxTouchPoints > 0 );
+  return ( ( navigator.maxTouchPoints > 0 ) );
 }
 
 let safe_to_lock_cursor = true;
@@ -367,6 +365,7 @@ var WA =
 
     if (IsTouchEnabled())
     {
+      console.log("Touch Enabled");
       //WA.charState = 1 << 0;
       selectable_margin = 50.0;
       WA.canvas.addEventListener("touchstart", function(e) { 
@@ -395,7 +394,7 @@ var WA =
       WA.mouseY = -100;
     });
     }
-    else
+    
     {
       WA.canvas.addEventListener("mousemove", function(e) { 
         if (document.pointerLockElement != WA.gl.canvas) {
@@ -681,7 +680,9 @@ var env = {
     cosf: (x) => { DebugTrace(); return Math.cos(x); },
     sin: (x) => { DebugTrace(); return Math.sin(x); },
     sinf: (x) => { DebugTrace(); return Math.sin(x); },
+    atanf: (x) => { DebugTrace(); return Math.atan(x); },
     atan2f: (x, y) => { DebugTrace(); return Math.atan2(x, y); },
+    atanf: (x) => { DebugTrace(); return Math.sqrt(x); },
     pow: (x, y) => { DebugTrace(); return Math.pow(x, y); },
     powf: (x, y) => { DebugTrace(); return Math.pow(x, y); },
     abs: (x) => { DebugTrace(); return Math.abs(x); },
