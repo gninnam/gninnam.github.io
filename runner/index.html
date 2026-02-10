@@ -320,45 +320,45 @@ var WA =
     },
     print: function(text)
     {
-		console.log(text);
+    console.log(text);
     },
     error: function(code, msg)
     {
       // TODO(gninnam): Redirect user to a backup html page that explains
       // the web assembly requirement or if it's simple, just pop it up on this page
-		console.log({
-			BOOT: 'Error during startup. Your browser might not support WebAssembly. Please update it to the latest version.',
-			CRASH: 'The program crashed.',
-			MEM: 'The program ran out of memory.',
+    console.log({
+      BOOT: 'Error during startup. Your browser might not support WebAssembly. Please update it to the latest version.',
+      CRASH: 'The program crashed.',
+      MEM: 'The program ran out of memory.',
         }[code] + '\n(' + msg + ')');
     },
     arrayToInt: function(bs, start) 
     {
-		start = start || 0;
-		const bytes = bs.subarray(start, start+8); 
-		let n = 0;
-		let i = 64;
-		for (const byte of bytes.values()) {
-			n = byte<<i;
-			i -= 8;
-		}
-		return n;
+    start = start || 0;
+    const bytes = bs.subarray(start, start+8); 
+    let n = 0;
+    let i = 64;
+    for (const byte of bytes.values()) {
+      n = byte<<i;
+      i -= 8;
+    }
+    return n;
     },
     // Decode a string from memory starting at address base.
     decode: function(memory, base, length = Math.pow(2, 24)) {
-		let cursor = base;
-		let result = '';
-		while (memory[cursor] !== 0) {
-			result += String.fromCharCode(memory[cursor++]);
-			if (--length == 0)
-				break;
-		}
-		return result;
+    let cursor = base;
+    let result = '';
+    while (memory[cursor] !== 0) {
+      result += String.fromCharCode(memory[cursor++]);
+      if (--length == 0)
+        break;
+    }
+    return result;
     },
     started: function()
     {
-		WA.print('\nStarting...\n');
-		WA.start = window.performance.now();
+    WA.print('\nStarting...\n');
+    WA.start = window.performance.now();
     let Time = BigInt(Date.now());
 
     let selectable_margin = 20.0;
@@ -408,6 +408,7 @@ var WA =
         WA.mouseY = Math.round(e.clientY - cRect.top);
       });
       WA.canvas.addEventListener("mousedown", function(e) { 
+        e.preventDefault();
         WA.add_mouse_event(WA.key_state_down, e.button, e.x, e.y, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
         WA.key_states[WA.get_key_value(e.button)] = 1;
         var cRect = WA.canvas.getBoundingClientRect();
