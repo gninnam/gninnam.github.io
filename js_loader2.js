@@ -1,10 +1,16 @@
+//----------------------------------------------------------------------------->
+//----------------------------------Loader------------------------------------->
+//----------------------------------------------------------------------------->
+
+console.log("wasm_loader2.js");
+
 function isPowerOf2(value) {
   return (value & (value - 1)) == 0;
 }
 
 WA.imports = {};
 
-fetch(WA.module).then(res => res.arrayBuffer()).then(function(wasmBytes)
+fetch(WA.module, {cache: "no-cache"}).then(res => res.arrayBuffer()).then(function(wasmBytes)
 {
   'use strict';
 

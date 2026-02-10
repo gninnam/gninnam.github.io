@@ -163,7 +163,7 @@ var env = {
     js_read_entire_file: (path) =>
     {
       path = WA.decode(WA.view8, path);
-      fetch(path).then(res => {
+      fetch(path, {cache: "no-cache"}).then(res => {
         res.blob().then(blob => {
           console.log(`size: ${blob.size}`);
           return blob.size;
