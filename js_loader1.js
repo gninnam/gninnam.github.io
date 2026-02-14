@@ -11,11 +11,14 @@ function IsTouchEnabled() {
 }
 
 var safe_to_lock_cursor = true;
+var should_prevent_key_defaults = false;
+var should_prevent_mouse_defaults = false;
 
 var WA =
 {
     module: 'output.wasm',
     enableWebGL: true,
+    gamepad: null,
     memory_reservations: [],
     textures: [],
     assets: [],
@@ -335,7 +338,8 @@ var WA =
         WA.mouseY = Math.round(e.clientY - cRect.top);
       });
       WA.canvas.addEventListener("mousedown", function(e) { 
-        e.preventDefault();
+        if (should_prevent_mouse_defaults) e.preventDefault();
+
         WA.add_mouse_event(WA.key_state_down, e.button, e.x, e.y, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
         WA.key_states[WA.get_key_value(e.button)] = 1;
         var cRect = WA.canvas.getBoundingClientRect();
@@ -360,6 +364,7 @@ var WA =
         WA.mouseY = Math.round(e.clientY - cRect.top);
     });
       window.addEventListener("keydown", function(e) {
+        if (should_prevent_key_defaults) e.preventDefault();
         WA.add_button_press_event(WA.window_event_keyboard, WA.key_state_down, e.code, e.shiftKey, e.ctrKey, e.altKey, e.metaKey);
         WA.key_states[WA.get_key_value(e.code)] = 1;
         WA.charState |= WA.input_map[e.code];
@@ -373,7 +378,17 @@ var WA =
       document.addEventListener("pointerlockchange", () => {
         if (document.pointerLockElement != WA.gl.canvas) {
           WA.asm.wasm_canvas_unlock_cursor();
+          should_prevent_key_defaults = false;
+          should_prevent_mouse_defaults = false;
         }
+      });
+      window.addEventListener("gamepadconnected", (e) => {
+        console.log(`Controller connected | Index: ${e.gamepad.index}`);
+        WA.gamepad = e.gamepad;
+      });
+      window.addEventListener("gamepaddisconnected", (e) => {
+        console.log(`Controller disconnected | Index: ${e.gamepad.index}`);
+        if (WA.gamepad.index === e.gamepad.index) WA.gamepad = null;
       });
     }
 

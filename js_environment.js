@@ -115,6 +115,8 @@ var env = {
     },
     js_lock_cursor_to_canvas: () => {
       WA.gl.canvas.requestPointerLock({ unadjustedMovement: true });
+      should_prevent_key_defaults = true;
+      should_prevent_mouse_defaults = true;
     },
     js_unlock_cursor: () => {
       document.exitPointerLock();
@@ -126,6 +128,51 @@ var env = {
         WA.key_states[key] = state;
       }
       return state;
+    },
+    js_get_controller_state: (index, ptr) => {
+      let gp = WA.gamepad;
+      if (gp)
+      {
+        // TODO: Check to see if it's a standard gamepad.
+        WA.view8[ptr++] = gp.connected ? 1 : 0; 
+        let count = Math.min(12, gp.buttons.length);
+        for (let i = 0; i < count; i++)
+        {
+          if (i == 6 || i == 7)
+          {
+            if (gp.buttons[i].value > 0)
+            {
+              WA.view8[ptr] = gp.buttons[i].pressed; 
+            }
+            else
+            {
+              WA.view8[ptr] = 0;
+            }           
+          }
+          else
+          {
+            WA.view8[ptr] = gp.buttons[i].pressed;
+          }
+          ptr++;
+        }
+
+        WA.view8[ptr++] = gp.buttons[12].pressed;
+        WA.view8[ptr++] = gp.buttons[14].pressed;
+        WA.view8[ptr++] = gp.buttons[15].pressed;
+        WA.view8[ptr++] = gp.buttons[13].pressed;
+
+        ptr += 3;
+                
+        for (let i = 0; i < 4; i++)
+        {
+          WA.viewF32[ptr/4] = gp.axes[i];
+          ptr += 4;
+        }
+        WA.viewF32[ptr/4] = gp.buttons[6].value;
+        ptr += 4;
+        WA.viewF32[ptr/4] = gp.buttons[7].value;        
+        ptr += 4;
+      }      
     },
     js_set_title: (string) => {
       document.title = WA.decode(WA.view8, string);
@@ -197,7 +244,7 @@ var env = {
     sinf: (x) => { DebugTrace(); return Math.sin(x); },
     atanf: (x) => { DebugTrace(); return Math.atan(x); },
     atan2f: (x, y) => { DebugTrace(); return Math.atan2(x, y); },
-    atanf: (x) => { DebugTrace(); return Math.sqrt(x); },
+    atanf: (x) => { DebugTrace(); return Math.atan(x); },
     pow: (x, y) => { DebugTrace(); return Math.pow(x, y); },
     powf: (x, y) => { DebugTrace(); return Math.pow(x, y); },
     abs: (x) => { DebugTrace(); return Math.abs(x); },
